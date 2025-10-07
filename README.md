@@ -27,7 +27,6 @@ This project aims to implement a **SARSA (State-Action-Reward-State-Action) agen
 ### **Basic Usage**
 
 ```bash
-# Train with RBF features (default)
 python example.py
 ```
 
@@ -47,9 +46,7 @@ pip install gymnasium numpy matplotlib pytest
 linear_mountain_car/
 ├── sarsa_linear_agent.py      # Core SARSA agent
 ├── feature_extractors.py      # Feature extraction implementations  
-├── training.py                # Training, evaluation, CLI
 ├── example.py                 # Usage examples
-├── feature_demo.py            # Feature extractor analysis
 ├── README.md                  # This documentation
 └── requirements.txt           # Dependencies
 ```
@@ -88,3 +85,25 @@ Where:
 
 - Sutton, R. S., & Barto, A. G. (2018). *Reinforcement Learning: An Introduction*
 - Gymnasium Mountain Car Environment Documentation
+
+
+## 🧪 Assignment — Hyperparameter comparison and boxplots
+
+Your task: systematically evaluate different hyperparameter configurations (for example, learning rate and number of RBF centers), run multiple independent trials for each configuration, and produce a boxplot showing the distribution of "steps to success" for the 5 most interesting configurations.
+
+Guidelines:
+- Each run should be executed for 50,000 environment steps.
+- Choose a sensible grid of hyperparameters to explore. Typical choices to vary:
+  - learning_rate (α): e.g. [0.005, 0.01, 0.02, 0.05, 0.1]
+  - n_centers (RBF): e.g. [9, 16, 25, 36, 49]
+  - keep other parameters fixed (epsilon schedule, discount_factor)
+- For each hyperparameter configuration, run 10 independent seeds and record the number of environment steps required to reach 10 episodes reaching the goal.
+- After collecting results, pick the 5 most interesting configurations (by median or mean steps-to-success or by visual inspection) and create a matplotlib boxplot that compares their step-to-success distributions.
+
+Deliverables
+- A run.py script  that runs the experiments and saves raw results (CSV/JSON).
+- A short report (Markdown) showing the boxplot for the 5 selected configurations and a brief discussion of why they are interesting.
+
+Tips
+- Use a fixed RNG seed per trial for reproducibility, but vary the seed across trials.
+- Save intermediate results frequently so long runs can be resumed.
