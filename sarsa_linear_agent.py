@@ -32,9 +32,9 @@ class LinearSarsaAgent:
         feature_extractor: FeatureExtractor,
         learning_rate: float = 0.01,
         epsilon: float = 0.1,
-        epsilon_decay: float = 0.995,
-        epsilon_min: float = 0.01,
-        discount_factor: float = 1.0,
+        epsilon_decay: float = 0.9999,
+        epsilon_min: float = 0.02,
+        discount_factor: float = 0.99,
     ):
         self.env = env
         self.n_actions = env.action_space.n
@@ -47,7 +47,7 @@ class LinearSarsaAgent:
 
         # Students should initialize weights to zeros with shape
         # (n_actions, feature_extractor.n_features)
-        self.weights = [] #TODO: Initialize properly
+        self.weights = np.zeros((self.n_actions, self.feature_extractor.n_features)) 
 
         # Track training statistics
         self.episode_rewards = []
@@ -58,19 +58,26 @@ class LinearSarsaAgent:
 
         compute the dot product between weights and features.
         """
-        raise NotImplementedError()
+        return float(np.dot(self.weights[action], self.feature_extractor.extract_features(state)))
 
     def V(self, state: np.ndarray) -> float:
         """Return the maximum Q over actions for a state."""
-        raise NotImplementedError()
+        return np.max([
+            self.Q(state, action) 
+            for action in range(self.n_actions)
+        ])
 
     def act(self, state: np.ndarray) -> int:
         """Epsilon-greedy action selection (student to implement).
 
         HINT: With probability epsilon choose random action, otherwise argmax Q.
         """
-        # Student implementation required
-        raise NotImplementedError("Implement epsilon-greedy policy in act()")
+        if np.random.rand() < self.epsilon:
+            return np.random.randint(self.n_actions)
+        return np.argmax([
+            self.Q(state, action)
+            for action in range(self.n_actions)
+        ])
 
     def updateQ(
         self,
@@ -83,13 +90,18 @@ class LinearSarsaAgent:
     ) -> None:
         """SARSA weight update 
         """
-        raise NotImplementedError("Implement SARSA update rule in updateQ()")
+        q_sa = self.Q(state, action)
+        q_next = self.Q(next_state, next_action)
+
+        delta = reward + self.discount_factor * q_next * (not done) - q_sa
+        phi_s = self.feature_extractor.extract_features(state)
+        self.weights[action] += self.learning_rate * delta * phi_s
 
     def decay_epsilon(self) -> None:
         """Decay epsilon after each episode (simple multiplicative decay).
         Don't decay below self.epsilon_min
         """
-        raise NotImplementedError("Implement epsilon decay in decay_epsilon()")
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
 
     def train(self, total_steps: int) -> Tuple[List[float], List[float]]:
         """Train the agent for a fixed number of environment steps.
@@ -101,7 +113,61 @@ class LinearSarsaAgent:
 
         Returns two lists: rewards per step and rewards per episode.
         """
-        raise NotImplementedError("Implement training loop in train()")
+        step_reward, episode_reward = [], []
+        cur_episode_reward = 0
+        state, _ = self.env.reset()
+        for _ in range(total_steps):
+            action = self.act(state)
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            done = terminated or truncated
+            step_reward.append(reward)
+            cur_episode_reward += reward
+            next_action = self.act(state)
+            self.updateQ(state, action, reward, next_state, next_action, done)
+            state = next_state
+            if done:
+                state, _ = self.env.reset()
+                self.decay_epsilon()
+                episode_reward.append(cur_episode_reward)
+                cur_episode_reward = 0
+        return (step_reward, episode_reward)
+    
+    def train_until_x_successes(self, total_steps: int, x: int, seed: int) -> Tuple[List[float], List[float], int]:
+        """Train the agent for a fixed number of environment steps.
+
+        Students should implement a step-based loop that:
+        - interacts with the environment
+        - performs SARSA updates via `updateQ`
+        - decays epsilon at episode ends and records statistics
+
+        Returns two lists: rewards per step and rewards per episode.
+        """
+        step_reward, episode_reward = [], []
+        cur_episode_reward = 0
+        state, _ = self.env.reset(seed=seed)
+        num_successes = 0
+        steps_needed = total_steps
+        for steps in range(total_steps):
+            action = self.act(state)
+            next_state, reward, terminated, truncated, _ = self.env.step(action)
+            done = terminated or truncated
+            step_reward.append(reward)
+            cur_episode_reward += reward
+            next_action = self.act(state)
+            self.updateQ(state, action, reward, next_state, next_action, done)
+            state = next_state
+            if done:
+                state, _ = self.env.reset(seed=seed)
+                self.decay_epsilon()
+                episode_reward.append(cur_episode_reward)
+                cur_episode_reward = 0
+                if terminated:
+                    num_successes += 1
+                    if num_successes == x:
+                        steps_needed = steps
+                        break
+        return (step_reward, episode_reward, steps_needed)
+
 
     def save_model(self, filepath: str) -> None:
         """Save weights and feature extractor config.

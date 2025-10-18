@@ -58,8 +58,11 @@ class FeatureExtractor(ABC):
         This helper clamps out-of-bounds values to the [0,1] interval which
         is useful for grid-based or RBF centers defined in normalized space.
         """
-        raise NotImplementedError("Please implement normalize_state as part of the assignment.")
+        obs_low = self.env.observation_space.low
+        obs_high = self.env.observation_space.high
 
+        state = (state - obs_low) / (obs_high - obs_low)
+        return np.clip(state, 0.0, 1.0)
 
 class RBFFeatureExtractor(FeatureExtractor):
     """Skeleton RBF feature extractor for students to implement.
@@ -77,12 +80,11 @@ class RBFFeatureExtractor(FeatureExtractor):
     - Ensure the returned feature vector has length `self.n_features`.
     """
 
-    def __init__(self, env: gym.Env, n_centers: int = 25, sigma: float = 0.1):
+    def __init__(self, env: gym.Env, n_centers: int = 25, sigma: float = 0.12):
         # Student-implemented: store parameters and create centers
         self.n_centers = int(n_centers)
         self.sigma = float(sigma)
 
-        
         self._create_rbf_centers()
 
         super().__init__(env)
@@ -99,11 +101,18 @@ class RBFFeatureExtractor(FeatureExtractor):
         within the normalized [0,1] coordinates. The first center must be at (0,0) and the last at (1,1).
 
         """
-        raise NotImplementedError("Please implement _create_rbf_centers as part of the assignment.")
+        self.centers = np.zeros((self.n_centers, 2))
+        grid_size = int(np.ceil(np.sqrt(self.n_centers)))
+        x = np.linspace(0, 1, grid_size)
+        y = np.linspace(0, 1, grid_size)
+        grid_points = np.array([[xi, yj] for xi in x for yj in y])
+        real_points = np.linspace(0, len(grid_points) - 1, self.n_centers, dtype=int)
+        self.centers = grid_points[real_points]
 
     def extract_features(self, state: np.ndarray) -> np.ndarray:
         """(Student) Compute RBF feature activations for a state.
 
         Returns a 1D numpy array of length `self.n_features`.
         """
-        raise NotImplementedError("Please implement extract_features as part of the assignment.")
+        norm_state = self.normalize_state(state)
+        return np.exp(-np.sum((self.centers - norm_state) ** 2, axis=1) / (2 * self.sigma ** 2))
